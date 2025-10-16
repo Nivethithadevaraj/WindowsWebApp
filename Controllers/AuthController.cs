@@ -52,7 +52,12 @@ namespace Students.Controllers
 
         private string GenerateJwtToken(User user)
         {
-            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"] ?? "default_secret"));
+            var keyValue = _configuration["Jwt:Key"];
+            if (string.IsNullOrEmpty(keyValue))
+                throw new Exception("JWT key is missing from configuration");
+
+            var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(keyValue));
+
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
             var claims = new[]

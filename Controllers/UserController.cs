@@ -75,9 +75,14 @@ namespace Students.Controllers
             if (user == null)
                 return NotFound("User not found");
 
-            _context.Users.Remove(user);
+            user.IsActive = false;
+            user.DeletedDate = DateTime.Now;
+
+            _context.Users.Update(user);
             _context.SaveChanges();
-            return Ok("User deleted successfully");
+
+            return Ok($"User {user.Name} marked as inactive and deleted date updated.");
         }
+
     }
 }
