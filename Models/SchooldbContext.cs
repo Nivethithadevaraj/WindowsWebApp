@@ -2,18 +2,13 @@
 
 namespace Students.Models
 {
-    public class SchooldbContext : DbContext
+    public class SchoolDbContext : DbContext
     {
-        public SchooldbContext(DbContextOptions<SchooldbContext> options)
+        public SchoolDbContext(DbContextOptions<SchoolDbContext> options)
             : base(options)
         {
         }
 
         public DbSet<User> Users { get; set; }
-
-        protected override void OnModelCreating(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<User>().ToTable("users");
-        }
     }
 }

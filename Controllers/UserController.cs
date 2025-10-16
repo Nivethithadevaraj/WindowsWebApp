@@ -1,87 +1,83 @@
-﻿using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Students.Models;
+using System.Security.Claims;
 
 namespace Students.Controllers
 {
-    [Route("api/[controller]")]
     [ApiController]
+    [Route("api/[controller]")]
+    [Authorize]
     public class UserController : ControllerBase
     {
-        private readonly SchooldbContext _context;
+        private readonly SchoolDbContext _context;
 
-        public UserController(SchooldbContext context)
+        public UserController(SchoolDbContext context)
         {
             _context = context;
         }
 
-        // GET: api/User
-        [HttpGet]
-        public async Task<ActionResult<IEnumerable<User>>> GetUsers()
+        [HttpGet("me")]
+        [Authorize(Roles = "Student,Teacher")]
+        public IActionResult GetMyProfile()
         {
-            return await _context.Users.ToListAsync();
+            var email = User.FindFirstValue(ClaimTypes.Email);
+            var user = _context.Users.FirstOrDefault(u => u.Email == email);
+            if (user == null) return NotFound("User not found");
+            return Ok(user);
         }
 
-        // GET: api/User/5
-        [HttpGet("{id}")]
-        public async Task<ActionResult<User>> GetUser(int id)
+        [HttpGet("all")]
+        [Authorize(Roles = "Teacher")]
+        public IActionResult GetAllUsers()
         {
-            var user = await _context.Users.FindAsync(id);
-            if (user == null)
-            {
-                return NotFound();
-            }
-            return user;
+            return Ok(_context.Users.ToList());
         }
 
-        // POST: api/User
         [HttpPost]
-        public async Task<ActionResult<User>> PostUser(User user)
+        [Authorize(Roles = "Teacher")]
+        public IActionResult AddUser([FromBody] User newUser)
         {
-            user.CreatedDate = DateTime.Now;
-            _context.Users.Add(user);
-            await _context.SaveChangesAsync();
-            return CreatedAtAction(nameof(GetUser), new { id = user.UserId }, user);
+            if (_context.Users.Any(u => u.Email == newUser.Email))
+                return BadRequest("User already exists");
+
+            newUser.PasswordHash = AuthController.HashPassword(newUser.PasswordHash);
+            _context.Users.Add(newUser);
+            _context.SaveChanges();
+            return Ok("User added successfully");
         }
 
-        // PUT: api/User/5
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutUser(int id, User user)
+        [Authorize(Roles = "Teacher")]
+        public IActionResult UpdateUser(int id, [FromBody] User updated)
         {
-            if (id != user.UserId)
-                return BadRequest();
+            var user = _context.Users.Find(id);
+            if (user == null)
+                return NotFound("User not found");
 
+            user.Name = updated.Name;
+            user.Email = updated.Email;
+            user.Role = updated.Role;
             user.UpdatedDate = DateTime.Now;
-            _context.Entry(user).State = EntityState.Modified;
 
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!_context.Users.Any(e => e.UserId == id))
-                    return NotFound();
-                else
-                    throw;
-            }
+            if (!string.IsNullOrEmpty(updated.PasswordHash))
+                user.PasswordHash = AuthController.HashPassword(updated.PasswordHash);
 
-            return NoContent();
+            _context.SaveChanges();
+            return Ok("User updated successfully");
         }
 
-        // DELETE: api/User/5
         [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteUser(int id)
+        [Authorize(Roles = "Teacher")]
+        public IActionResult DeleteUser(int id)
         {
-            var user = await _context.Users.FindAsync(id);
+            var user = _context.Users.Find(id);
             if (user == null)
-                return NotFound();
+                return NotFound("User not found");
 
-            user.DeletedDate = DateTime.Now;
             _context.Users.Remove(user);
-            await _context.SaveChangesAsync();
-
-            return NoContent();
+            _context.SaveChanges();
+            return Ok("User deleted successfully");
         }
     }
 }
